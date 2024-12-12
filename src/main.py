@@ -36,6 +36,26 @@ def dummy_l2r_square_and_multiply(a, e, n, w_s = 0, w_m = 0):
         weights.append(w_m)
     return weights
 
+def montgomery_power_ladder(a, e, n, w_s = 0, w_m = 0):
+    R0 = 1  # Represents x^(2^i) mod n
+    R1 = a % n  # Represents x^(2^i + 1) mod n
+    
+    weights = []
+    # Process the exponent bits from MSB to LSB
+    for bit in e:
+        if bit == 1:
+            R0 = (R0 * R1) % n
+            weights.append(w_m)
+            R1 = (R1 * R1) % n
+            weights.append(w_s)
+        else:
+            R1 = (R0 * R1) % n
+            weights.append(w_m)
+            R0 = (R0 * R0) % n
+            weights.append(w_s)
+    
+    return weights
+
 def generate_number_with_hamming_weight(bit_length, hamming_weight):
     """
     Generate a single number with a specific Hamming weight.
@@ -90,6 +110,10 @@ def part2(part = 0):
                 start_time = time.time()
                 dummy_l2r_square_and_multiply(2, exponent, n)
                 total_time = time.time() - start_time
+            elif part == 6:
+                start_time = time.time()
+                montgomery_power_ladder(2, exponent, n)
+                total_time = time.time() - start_time
             t = t + total_time
         t = t / avg
         times.append(t)
@@ -112,6 +136,8 @@ def part3(part = 0):
             weight = basic_l2r_square_and_multiply(2, exponent, n, w_s=1, w_m=2)
         elif part == 4:
             weight = dummy_l2r_square_and_multiply(2, exponent, n, w_s=1, w_m=2)
+        elif part == 6:
+            weight = montgomery_power_ladder(2, exponent, n, w_s=1, w_m=2)
         weights.append(sum(weight))
     plt.plot(hamming_weights, weights)
     plt.xlabel("Hamming Weight")
@@ -147,23 +173,59 @@ def inject_dummy_l2r_square_and_multiply(a, e, n, inject_fault_at_i = -1):
     return b
 
 
-def part5():
-    e = generate_random_binary_list()
+def inject_montgomery_power_ladder(a, e, n, inject_fault_at_i = -1):
+    R0 = 1  # Represents x^(2^i) mod n
+    R1 = a % n  # Represents x^(2^i + 1) mod n
+    
+    # Process the exponent bits from MSB to LSB
+    for i in range(len(e)):
+        if e[i] == 1:
+            if inject_fault_at_i == i:
+                R0 = 1
+                R1 = 1
+            else:
+                R0 = (R0 * R1) % n
+                R1 = (R1 * R1) % n
+        else:
+            R1 = (R0 * R1) % n
+            R0 = (R0 * R0) % n
+    return R0
+
+def part5(part):
+    e = 1
+    while e == 1: 
+        e = generate_random_binary_list()
     orig_value = inject_dummy_l2r_square_and_multiply(2, e, n)
     key_bits = []
     for i in range(0, num_bits + 1):
-        observed_val = inject_dummy_l2r_square_and_multiply(2, e, n, inject_fault_at_i=i)
-        if observed_val == orig_value:
-            key_bits.append(0)
-        else:
-            key_bits.append(1)
+        if part == 4:
+            observed_val = inject_dummy_l2r_square_and_multiply(2, e, n, inject_fault_at_i=i)
+            if observed_val == orig_value:
+                key_bits.append(0)
+            else:
+                key_bits.append(1)
+        if part == 6:
+            observed_val = inject_montgomery_power_ladder(2, e, n, inject_fault_at_i=i)
+            if observed_val == orig_value:
+                key_bits.append(0)
+            else:
+                key_bits.append(1)
+
     observed_key = int(''.join(map(str, key_bits)), 2)
     original_key = int(''.join(map(str, e)), 2)
     assert observed_key == original_key, "OBSERVED KEY IS NOT EQUAL TO ORIGINAL KEY"
+
+
+    
+def part6():
+    part2(6)
+    part3(6)
+    part5(6)
 
 if __name__ == "__main__":
     #part1()
     #part2()
     #part3()
     #part4()
-    part5()
+    #part5()
+    part6()
